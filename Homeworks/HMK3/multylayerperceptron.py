@@ -72,7 +72,7 @@ class MultyLayerPerceptron:
             self.patience_counter = 0
             print(f"decreased lr from {old_lr:.6f} to {self.learning_rate:.6f}")
 
-    def train(self, input_data, true_labels, X_val=None, y_val=None, epochs=100, target_accuracy=0.95):
+    def train(self, input_data, true_labels, X_val=None, y_val=None, epochs=100):
         for epoch in range(epochs):
             permutation = np.random.permutation(input_data.shape[0])
             input_data = input_data[permutation]
