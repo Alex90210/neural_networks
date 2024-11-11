@@ -5,7 +5,6 @@ from mnist_loader import download_mnist
 from multylayerperceptron import MultyLayerPerceptron
 
 def preprocess_data(X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    # normalize data
     X = X.astype('float32')
     X = X / 255.0
     X = X - 0.5

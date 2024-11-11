@@ -1,5 +1,4 @@
 import numpy as np
-import time
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -13,7 +12,7 @@ def softmax(x):
 
 class MultyLayerPerceptron:
     def __init__(self, input_size, hidden_size, output_size, learning_rate=0.05, batch_size=50,
-                 lr_patience=3, lr_decay_factor=0.5, min_lr=1e-6):
+                 lr_patience=3, lr_decay_factor=0.5, min_lr=0.001):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -27,44 +26,38 @@ class MultyLayerPerceptron:
         self.best_val_accuracy = 0
         self.patience_counter = 0
 
-        self.weights_input_hidden = np.random.randn(input_size, hidden_size) * 0.01
-        self.bias_hidden = np.zeros((1, hidden_size))
-        self.weights_hidden_output = np.random.randn(hidden_size, output_size) * 0.01
-        self.bias_output = np.zeros((1, output_size))
+        self.weights_i_h = np.random.randn(input_size, hidden_size) * 0.01
+        self.bias_h = np.zeros((1, hidden_size))
+        self.weights_h_o = np.random.randn(hidden_size, output_size) * 0.01
+        self.bias_o = np.zeros((1, output_size))
 
     def forward(self, input_data):
-        # hidden layer
-        self.hidden_input = np.dot(input_data, self.weights_input_hidden) + self.bias_hidden
-        self.hidden_output = sigmoid(self.hidden_input)
+        self.hidden_i = np.dot(input_data, self.weights_i_h) + self.bias_h
+        self.hidden_o = sigmoid(self.hidden_i)
 
-        # output layer
-        self.output_input = np.dot(self.hidden_output, self.weights_hidden_output) + self.bias_output
-        self.output_output = softmax(self.output_input)
-        return self.output_output
+        self.output_i = np.dot(self.hidden_o, self.weights_h_o) + self.bias_o
+        self.output_o = softmax(self.output_i)
+        return self.output_o
 
     def backward(self, input_data, true_labels):
         batch_size = input_data.shape[0]
-        # correct labels one hot encoded
+        # one hot
         true_labels_one_hot = np.zeros((batch_size, self.output_size))
         true_labels_one_hot[np.arange(batch_size), true_labels] = 1
 
-        output_error = self.output_output - true_labels_one_hot
+        # gradients
+        output_error = self.output_o - true_labels_one_hot
+        delta_weights_h_to_o = np.dot(self.hidden_o.T, output_error) / batch_size
+        delta_o_bias = np.sum(output_error, axis=0, keepdims=True) / batch_size
 
-        # gradients for output layer
-        d_weights_hidden_output = np.dot(self.hidden_output.T, output_error) / batch_size
-        d_bias_output = np.sum(output_error, axis=0, keepdims=True) / batch_size
+        hidden_error = np.dot(output_error, self.weights_h_o.T) * sigmoid_derivative(self.hidden_o)
+        delta_weights_i_to_h = np.dot(input_data.T, hidden_error) / batch_size
+        delta_h_bias = np.sum(hidden_error, axis=0, keepdims=True) / batch_size
 
-        # error for hidden layer
-        hidden_error = np.dot(output_error, self.weights_hidden_output.T) * sigmoid_derivative(self.hidden_output)
-
-        # gradients for hidden layer
-        d_weights_input_hidden = np.dot(input_data.T, hidden_error) / batch_size
-        d_bias_hidden = np.sum(hidden_error, axis=0, keepdims=True) / batch_size
-
-        self.weights_hidden_output -= self.learning_rate * d_weights_hidden_output
-        self.bias_output -= self.learning_rate * d_bias_output
-        self.weights_input_hidden -= self.learning_rate * d_weights_input_hidden
-        self.bias_hidden -= self.learning_rate * d_bias_hidden
+        self.weights_h_o -= self.learning_rate * delta_weights_h_to_o
+        self.bias_o -= self.learning_rate * delta_o_bias
+        self.weights_i_h -= self.learning_rate * delta_weights_i_to_h
+        self.bias_h -= self.learning_rate * delta_h_bias
 
     def adjust_learning_rate(self, val_accuracy):
         if val_accuracy > self.best_val_accuracy:
@@ -77,13 +70,9 @@ class MultyLayerPerceptron:
             old_lr = self.learning_rate
             self.learning_rate = max(self.learning_rate * self.lr_decay_factor, self.min_lr)
             self.patience_counter = 0
-            
-            if old_lr != self.learning_rate:
-                print(f"decreased lr from {old_lr:.6f} to {self.learning_rate:.6f}")
+            print(f"decreased lr from {old_lr:.6f} to {self.learning_rate:.6f}")
 
     def train(self, input_data, true_labels, X_val=None, y_val=None, epochs=100, target_accuracy=0.95):
-        history = {'train_accuracy': [], 'val_accuracy': [], 'learning_rates': []}
-        
         for epoch in range(epochs):
             permutation = np.random.permutation(input_data.shape[0])
             input_data = input_data[permutation]
@@ -101,9 +90,4 @@ class MultyLayerPerceptron:
             
             self.adjust_learning_rate(val_accuracy)
             
-            history['val_accuracy'].append(val_accuracy)
-            history['learning_rates'].append(self.learning_rate)
-            
-            print(f"epoch {epoch+1}/{epochs}, val acc: {val_accuracy:.4f}, lr: {self.learning_rate:.6f}")
-
-        return history
+            print(f"epoch {epoch+1}, val acc: {val_accuracy:.4f}, lr: {self.learning_rate:.6f}")
